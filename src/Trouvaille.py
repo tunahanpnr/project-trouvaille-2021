@@ -12,6 +12,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from tensorflow.python.keras import models
 from tensorflow.python.keras import layers
 
+from src.data.plot_result import plot_result
 from src.models import run_exps
 
 
@@ -62,7 +63,7 @@ class Trouvaille:
         scaler = StandardScaler()
         X = scaler.fit_transform(np.array(data.iloc[:, :-1], dtype=float))
 
-        pca = PCA(n_components=7)
+        pca = PCA(n_components=11)
         pca.fit(X)
         print(pca.explained_variance_ratio_)
 
@@ -71,7 +72,7 @@ class Trouvaille:
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, test_size=0.2)
 
     def create_model(self):
-        self.model.add(layers.Dense(512, activation='relu', input_shape=(self.X_train.shape[1],)))
+        self.model.add(layers.Dense(512, activation='relu', input_shape=(self.X.shape[1],)))
         self.model.add(layers.Dense(256, activation='relu'))
         self.model.add(layers.Dense(128, activation='relu'))
         self.model.add(layers.Dense(64, activation='relu'))
@@ -81,10 +82,13 @@ class Trouvaille:
                            metrics=['accuracy'])
 
     def training_model(self):
-        self.model.fit(self.X_train,
-                       self.y_train,
-                       epochs=30,
-                       batch_size=128)
+        history = self.model.fit(self.X_train,
+                                 self.y_train,
+                                 validation_split=0.20,
+                                 epochs=30,
+                                 batch_size=128)
+
+        # plot_result(history)
 
         test_loss, test_acc = self.model.evaluate(self.X_test, self.y_test)
         print('test_acc: ', test_acc)
@@ -102,24 +106,22 @@ class Trouvaille:
         print(high)
 
     def run(self):
-        # print("create_dataset()")
-        # self.create_dataset()
+        print("create_dataset()")
+        self.create_dataset()
 
         print("preprocessing_dataset()")
         self.preprocessing_dataset()
 
         run_exps(self.X_train, self.y_train, self.X_test, self.y_test)
 
+        print("create_model()")
+        self.create_model()
 
-        # print("create_model()")
-        # self.create_model()
-        #
-        # print("training_model()")
-        # self.training_model()
-        #
-        # print("predict()")
-        # self.predict()
+        print("training_model()")
+        self.training_model()
 
+        print("predict()")
+        self.predict()
 
 
 def prep_header():
