@@ -5,13 +5,14 @@ import matplotlib.pyplot as plt
 import os
 import csv
 # Preprocessing
+from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 # Keras
 from tensorflow.python.keras import models
 from tensorflow.python.keras import layers
 
-from models import try_models
+from src.models import run_exps
 
 
 class Trouvaille:
@@ -27,8 +28,8 @@ class Trouvaille:
 
         genres = 'blues classical country disco hiphop jazz metal pop reggae rock'.split()
         for g in genres:
-            for filename in os.listdir('./data/genres_original/{g}'):
-                songname = './genres_original/{g}/{filename}'
+            for filename in os.listdir(f'./content/audio3sec/{g}'):
+                songname = f'./content/audio3sec/{g}/{filename}'
                 y, sr = librosa.load(songname, mono=True, duration=30)
                 chroma_stft = librosa.feature.chroma_stft(y=y, sr=sr)
                 rmse = librosa.feature.rms(y=y)
@@ -37,10 +38,10 @@ class Trouvaille:
                 rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)
                 zcr = librosa.feature.zero_crossing_rate(y)
                 mfcc = librosa.feature.mfcc(y=y, sr=sr)
-                to_append = '{filename} {np.mean(chroma_stft)} {np.mean(rmse)} {np.mean(spec_cent)} {np.mean(spec_bw)} {np.mean(rolloff)} {np.mean(zcr)}'
+                to_append = f'{filename} {np.mean(chroma_stft)} {np.var(chroma_stft)} {np.mean(rmse)} {np.var(rmse)} {np.mean(spec_cent)} {np.var(spec_cent)} {np.mean(spec_bw)} {np.var(spec_bw)} {np.mean(rolloff)} {np.var(rolloff)} {np.mean(zcr)} {np.var(zcr)}'
                 for e in mfcc:
-                    to_append += ' {np.mean(e)}'
-                to_append += ' {g}'
+                    to_append += f' {np.mean(e)}'
+                to_append += f' {g}'
                 file = open('data.csv', 'a', newline='')
                 with file:
                     writer = csv.writer(file)
@@ -61,30 +62,28 @@ class Trouvaille:
         scaler = StandardScaler()
         X = scaler.fit_transform(np.array(data.iloc[:, :-1], dtype=float))
 
-        self.X, self.y = unison_shuffled_copies(X, y)
+        pca = PCA(n_components=7)
+        pca.fit(X)
+        print(pca.explained_variance_ratio_)
 
-        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, self.y, test_size=0.2)
+        X, y = unison_shuffled_copies(X, y)
+
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, test_size=0.2)
 
     def create_model(self):
-        self.model = models.Sequential()
-        self.model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(self.X_train.shape[1],)))
-        self.model.add(layers.MaxPooling2D((2, 2)))
-        self.model.add(layers.Conv2D(64, (3, 3), activation='relu'))
-        self.model.add(layers.MaxPooling2D((2, 2)))
-        self.model.add(layers.Conv2D(64, (3, 3), activation='relu'))
-
-        #self.model.add(layers.Dense(256, activation='relu', input_shape=(self.X_train.shape[1],)))
-        #self.model.add(layers.Dense(128, activation='relu'))
-        #self.model.add(layers.Dense(64, activation='relu'))
-        #self.model.add(layers.Dense(10, activation='softmax'))
-        #self.model.compile(optimizer='adam',
-        #                   loss='sparse_categorical_crossentropy',
-        #                   metrics=['accuracy'])
+        self.model.add(layers.Dense(512, activation='relu', input_shape=(self.X_train.shape[1],)))
+        self.model.add(layers.Dense(256, activation='relu'))
+        self.model.add(layers.Dense(128, activation='relu'))
+        self.model.add(layers.Dense(64, activation='relu'))
+        self.model.add(layers.Dense(10, activation='softmax'))
+        self.model.compile(optimizer='adam',
+                           loss='sparse_categorical_crossentropy',
+                           metrics=['accuracy'])
 
     def training_model(self):
         self.model.fit(self.X_train,
                        self.y_train,
-                       epochs=20,
+                       epochs=30,
                        batch_size=128)
 
         test_loss, test_acc = self.model.evaluate(self.X_test, self.y_test)
@@ -103,29 +102,30 @@ class Trouvaille:
         print(high)
 
     def run(self):
-        print("create_dataset()")
-        self.create_dataset()
+        # print("create_dataset()")
+        # self.create_dataset()
 
         print("preprocessing_dataset()")
         self.preprocessing_dataset()
 
-        print("create_model()")
-        self.create_model()
+        run_exps(self.X_train, self.y_train, self.X_test, self.y_test)
 
-        print("training_model()")
-        self.training_model()
 
-        print("predict()")
-        self.predict()
+        # print("create_model()")
+        # self.create_model()
+        #
+        # print("training_model()")
+        # self.training_model()
+        #
+        # print("predict()")
+        # self.predict()
 
-        print("try_models()")
-        try_models(self.X, self.y)
 
 
 def prep_header():
-    header = 'filename chroma_stft rmse spectral_centroid spectral_bandwidth rolloff zero_crossing_rate'
+    header = 'filename chroma_stft_mean chroma_stft_var rmse_mean rmse_var spectral_centroid_mean spectral_centroid_var spectral_bandwidth_mean pectral_bandwidth_var rolloff_mean rolloff_var zero_crossing_rate_mean zero_crossing_rate_var'
     for i in range(1, 21):
-        header += ' mfcc{i}'
+        header += f' mfcc{i}'
     header += ' label'
     return header.split()
 
