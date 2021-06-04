@@ -72,7 +72,7 @@ class Trouvaille:
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, test_size=0.2)
 
     def create_model(self):
-        self.model.add(layers.Dense(512, activation='relu', input_shape=(self.X.shape[1],)))
+        self.model.add(layers.Dense(512, activation='relu', input_shape=(self.X_train.shape[1],)))
         self.model.add(layers.Dense(256, activation='relu'))
         self.model.add(layers.Dense(128, activation='relu'))
         self.model.add(layers.Dense(64, activation='relu'))
